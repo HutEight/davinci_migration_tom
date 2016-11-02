@@ -56,8 +56,8 @@ bool davinci_interface::publish_joints(const double input[14]){
 
 void davinci_interface::init_joint_feedback(ros::NodeHandle & nh){
 	if(!subscriber_ready){
-		ros::Subscriber robot_state_sub_1 = nh.subscribe("/dvrk/PSM1/joint_states", 10, CB_update_1);
-		ros::Subscriber robot_state_sub_2 = nh.subscribe("/dvrk/PSM2/joint_states", 10, CB_update_2);
+		robot_state_sub_1 = nh.subscribe("/dvrk/PSM1/joint_states", 10, CB_update_1);
+		robot_state_sub_2 = nh.subscribe("/dvrk/PSM2/joint_states", 10, CB_update_2);
 		subscriber_ready = true;
 		fresh_pos_1 = false;
 		fresh_pos_2 = false;
@@ -71,19 +71,21 @@ bool davinci_interface::get_fresh_robot_pos(std::vector<std::vector<double> > & 
 	
 	fresh_pos_1 = false;
 	fresh_pos_2 = false;
-	while(!fresh_pos_1 && fresh_pos_2){
+	while(!(fresh_pos_1 && fresh_pos_2) && ros::ok()){
+		
 		ros::spinOnce();
 		ros::Duration(0.01).sleep();
 	}
+	
 	output.clear();
 	output.resize(2);
-	output[0].resize(13);
-	output[1].resize(13);
+	output[0].resize(7);
+	output[1].resize(7);
 	
 	//Read the robopositions
-	for(int i = 0; i < 13; i++){
-		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_1, output[0][i]);
-		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_2, output[1][i]);
+	for(int i = 0; i < 7; i++){
+		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_1, output[1][i]);
+		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_2, output[0][i]);
 	}
 	
 	/*ROS_INFO("Arm one is at: ");
@@ -101,28 +103,30 @@ bool davinci_interface::get_last_robot_pos(std::vector<std::vector<double> > & o
 	
 	output.clear();
 	output.resize(2);
-	output[0].resize(13);
-	output[1].resize(13);
+	output[0].resize(7);
+	output[1].resize(7);
 	
 	//Read the robopositions
-	for(int i = 0; i < 13; i++){
-		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_1, output[0][i]);
-		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_2, output[1][i]);
+	for(int i = 0; i < 7; i++){
+		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_1, output[1][i]);
+		get_jnt_val_by_name(INPUT_JOINT_NAMES[i], states_2, output[0][i]);
 	}
 	
 	fresh_pos_1 = false;
-	fresh_pos_1 = false;
+	fresh_pos_2 = false;
 	
 	return true;
 }
 
 void CB_update_1(const sensor_msgs::JointState::ConstPtr& incoming){
+	//ROS_WARN("CB1");
 	fresh_pos_1 = true;
 	states_1 = *incoming;
 	return;
 }
 
 void CB_update_2(const sensor_msgs::JointState::ConstPtr& incoming){
+	//ROS_WARN("CB2");
 	fresh_pos_2 = true;
 	states_2 = *incoming;
 	return;
@@ -134,7 +138,7 @@ bool davinci_interface::get_jnt_val_by_name(std::string jnt_name,sensor_msgs::Jo
         if (jnt_name.compare(jointState.name[ijnt])==0) {
             // found a name match!
             qval= jointState.position[ijnt];
-            if(false) ROS_INFO("found name match for %s at position %d, jnt val = %f",jnt_name.c_str(),ijnt,qval);
+            //ROS_INFO("found name match for %s at position %d, jnt val = %f",jnt_name.c_str(),ijnt,qval);
             return true;
         }
     }
