@@ -71,6 +71,8 @@ class TrajActionServer {
 // using the "this" keyword.the _1 argument says that our executeCB takes one argument
 // the final argument"false" says don't start the server yet.(We'll do this in the constructor)
 //TrajActionServer::TrajActionServer(ros::NodeHandle nh) :nh_(nh),
+
+//Does this even DO anything?
 TrajActionServer::TrajActionServer(ros::NodeHandle &nh)
 	:nh_(nh),as_(nh, "trajActionServer", boost::bind(&TrajActionServer::executeCB, this, _1),false){
 	// in the above initialization, we name the server "example_action"
@@ -128,7 +130,8 @@ void TrajActionServer::cmd_pose_right(Vectorq7x1 qvec) {
 
 void TrajActionServer::initializePublishers() {
 	//ros::Publisherj1_pub_,j2_pub_,j2_1_pub_,j2_2_pub_,j2_3_pub_,j2_4_pub_,j2_5_pub_,j3_pub_,j4_pub_,j5_pub_,j6_pub_,j7_pub_;
-
+	
+	//Since these are the WRONG joint names and everything now goes through the interface library, I don't think THIS does anything either.
 	j1_pub_ =nh_.advertise<std_msgs::Float64>("/davinci/joint1_position_controller/command", 1, true); 
 	j2_pub_ =nh_.advertise<std_msgs::Float64>("/davinci/joint2_position_controller/command", 1, true);
 	j2_1_pub_ =nh_.advertise<std_msgs::Float64>("/davinci/joint2_1_position_controller/command", 1, true);
@@ -202,7 +205,7 @@ void TrajActionServer::executeCB(const actionlib::SimpleActionServer<davinci_tra
 	new_trajectory = goal->trajectory; // 
 	// insist that a traj have at least 2 pts
 	int npts = new_trajectory.points.size();
-	if (npts< 2) {
+	if (npts< 1) {
 		ROS_WARN("too few points; aborting goal");
 		as_.setAborted(result_);
 	}
@@ -271,8 +274,11 @@ void TrajActionServer::executeCB(const actionlib::SimpleActionServer<davinci_tra
 
 	// more general version--arbitrary number of joints
 bool TrajActionServer::update_trajectory(
-	double traj_clock, trajectory_msgs::JointTrajectory trajectory, Eigen::VectorXd qvec_prev, 
-	int &isegment, Eigen::VectorXd &qvec_new
+	double traj_clock,
+	trajectory_msgs::JointTrajectory trajectory,
+	Eigen::VectorXd qvec_prev, 
+	int &isegment,
+	Eigen::VectorXd &qvec_new
 ){
 
 	trajectory_msgs::JointTrajectoryPoint trajectory_point_from, trajectory_point_to;

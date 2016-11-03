@@ -33,7 +33,7 @@ void tl_execute(
 );
 bool exec_position(
 	const trajectory_msgs::JointTrajectoryPoint & in_point,
-	const trajectory_msgs::JointTrajectoryPoint & prev_point,
+	const std::vector<double> & current_jnts,
 	double & elapsed_time
 );
 std::vector<std::vector<double> > get_robot_pos();//Not currently used, kept for archival reasons until moved to another pkg.
@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
 	ros::NodeHandle nh;
 	
 	init_joint_control(nh);
+	init_joint_feedback(nh);
 	ROS_INFO("NODE LINKS LATCHED");
 	
 	//Begin offering the service
@@ -86,7 +87,7 @@ void tl_execute(
 	//Start the timer.
 	double elapsed_time = 0.0;
 	//Kick us out early if the trajectory does not have at least a start point and an end point.
-	if(goal->trajectory.points.size() < 2){
+	if(goal->trajectory.points.size() < 1){
 		ROS_ERROR("Trajectory %u is too small! Aborting.", goal->traj_id);
 		davinci_traj_streamer::trajResult r;
 		r.return_val = 0;
@@ -95,9 +96,18 @@ void tl_execute(
 		return;
 	}
 	
+	//Record our initial starting position
+	std::vector<std::vector<double> > prev_point_tmp;
+	get_fresh_robot_pos(prev_point_tmp);
+	std::vector<double> prev_point(14);
+	for(int i = 0; i < 7; i++){
+		prev_point[i] = prev_point_tmp[0][i];
+		prev_point[i + 7] = prev_point_tmp[1][i];
+	}
+	
 	//Move to each point in sequence and update the timer,
-	for(int i = 1; i < goal->trajectory.points.size(); i++){
-		if(!exec_position(goal->trajectory.points[i], goal->trajectory.points[i-1], elapsed_time)){
+	for(int i = 0; i < goal->trajectory.points.size(); i++){
+		if(!exec_position(goal->trajectory.points[i], prev_point, elapsed_time)){
 			//Abort if we discover that one of the points we are going to is malformed.
 			davinci_traj_streamer::trajResult r;
 			r.return_val = 0;
@@ -105,6 +115,7 @@ void tl_execute(
 			server->setAborted();
 			return;
 		}
+		prev_point = goal->trajectory.points[i].positions;
 	}
 	//Tell the requester we did a good job.
 	ROS_INFO("Trajectory %u complete.", goal->traj_id);
@@ -118,15 +129,15 @@ void tl_execute(
 
 //Move the robot to each individual markpoint.
 bool exec_position(
-	const trajectory_msgs::JointTrajectoryPoint& in_point,
-	const trajectory_msgs::JointTrajectoryPoint& prev_point,
+	const trajectory_msgs::JointTrajectoryPoint & in_point,
+	const std::vector<double> & current_jnts,
 	double & elapsed_time
 ){
 	//Give us at least one tick in which to execute the trajectory
 	double input_gtime = std::max(in_point.time_from_start.toSec(), elapsed_time + DT_TRAJ);
 	
 	std::vector<double> input_jnts = in_point.positions;
-	std::vector<double> current_jnts = prev_point.positions;
+	//std::vector<double> current_jnts = prev_point.positions;
 	
 	//Run some checks...
 	if(input_jnts.size() != 14){
